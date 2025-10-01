@@ -1,0 +1,308 @@
+import express from 'express';
+import mongoose from 'mongoose';
+import { body, validationResult, query } from 'express-validator';
+import Notification from '../models/Notification';
+import User from '../models/User';
+import { authenticateToken, requireSubscription } from '../middleware/auth';
+import { sendPushNotification } from '../services/notificationService';
+
+interface AuthRequest extends express.Request {
+  user?: {
+    userId: string;
+    email: string;
+  };
+}
+
+const router = express.Router();
+
+// Get user notifications
+router.get('/', authenticateToken, [
+  query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+], async (req: AuthRequest, res: any) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array(),
+      });
+    }
+
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const skip = (page - 1) * limit;
+    const userId = req.user?.userId;
+
+    const notifications = await Notification.getUserNotifications(new mongoose.Types.ObjectId(userId), limit, skip);
+    const total = await Notification.countDocuments({
+      $or: [
+        { userId: new mongoose.Types.ObjectId(userId) },
+        { userId: null } // Broadcast notifications
+      ]
+    });
+    const unreadCount = await Notification.getUnreadCount(new mongoose.Types.ObjectId(userId));
+
+    res.json({
+      success: true,
+      data: {
+        notifications,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+        unreadCount,
+      },
+    });
+  } catch (error) {
+    console.error('Get notifications error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+});
+
+// Mark notification as read
+router.put('/:id/read', authenticateToken, async (req: AuthRequest, res: any) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.userId;
+
+    const notification = await Notification.findOne({
+      _id: id,
+      $or: [
+        { userId: userId },
+        { userId: null } // Broadcast notifications
+      ]
+    });
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Notification not found',
+      });
+    }
+
+    notification.markAsRead();
+    await notification.save();
+
+    res.json({
+      success: true,
+      message: 'Notification marked as read',
+      data: notification,
+    });
+  } catch (error) {
+    console.error('Mark notification as read error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+});
+
+// Mark all notifications as read
+router.put('/read-all', authenticateToken, async (req: AuthRequest, res: any) => {
+  try {
+    const userId = req.user?.userId;
+
+    await Notification.updateMany(
+      {
+        $or: [
+          { userId: userId },
+          { userId: null } // Broadcast notifications
+        ],
+        isRead: false
+      },
+      {
+        $set: {
+          isRead: true,
+          readAt: new Date()
+        }
+      }
+    );
+
+    res.json({
+      success: true,
+      message: 'All notifications marked as read',
+    });
+  } catch (error) {
+    console.error('Mark all notifications as read error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+});
+
+// Register push token
+router.post('/register-token', authenticateToken, [
+  body('token').notEmpty().withMessage('Push token is required'),
+  body('platform').isIn(['ios', 'android', 'web']).withMessage('Platform must be ios, android, or web'),
+], async (req: AuthRequest, res: any) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array(),
+      });
+    }
+
+    const { token, platform } = req.body;
+    const userId = req.user?.userId;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Add token if not already present
+    user.addPushToken(token);
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Push token registered successfully',
+    });
+  } catch (error) {
+    console.error('Register push token error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+});
+
+// Remove push token
+router.delete('/remove-token', authenticateToken, [
+  body('token').notEmpty().withMessage('Push token is required'),
+], async (req: AuthRequest, res: any) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array(),
+      });
+    }
+
+    const { token } = req.body;
+    const userId = req.user?.userId;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Remove token
+    user.removePushToken(token);
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Push token removed successfully',
+    });
+  } catch (error) {
+    console.error('Remove push token error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+});
+
+// Send notification (Admin only - requires enterprise subscription)
+router.post('/send', authenticateToken, requireSubscription('enterprise'), [
+  body('title').trim().isLength({ min: 1, max: 100 }).withMessage('Title is required and must be less than 100 characters'),
+  body('message').trim().isLength({ min: 1, max: 500 }).withMessage('Message is required and must be less than 500 characters'),
+  body('type').isIn(['info', 'warning', 'success', 'error']).withMessage('Type must be info, warning, success, or error'),
+  body('userId').optional().isMongoId().withMessage('User ID must be a valid MongoDB ObjectId'),
+  body('data').optional().isObject().withMessage('Data must be an object'),
+], async (req: AuthRequest, res: any) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array(),
+      });
+    }
+
+    const { title, message, type, userId, data } = req.body;
+
+    // Create notification
+    const notification = new Notification({
+      title,
+      message,
+      type,
+      userId: userId || null, // null means broadcast
+      data: data || {},
+    });
+
+    await notification.save();
+
+    // Send push notification
+    try {
+      if (userId) {
+        // Send to specific user
+        const user = await User.findById(userId);
+        if (user && user.pushTokens.length > 0) {
+          await sendPushNotification(user.pushTokens, {
+            title,
+            body: message,
+            data: { notificationId: notification._id.toString(), type, ...data }
+          });
+        }
+      } else {
+        // Send to all users
+        const users = await User.find({ 
+          isActive: true, 
+          pushTokens: { $exists: true, $not: { $size: 0 } } 
+        });
+        
+        for (const user of users) {
+          if (user.pushTokens.length > 0) {
+            await sendPushNotification(user.pushTokens, {
+              title,
+              body: message,
+              data: { notificationId: notification._id.toString(), type, ...data }
+            });
+          }
+        }
+      }
+
+      notification.markAsSent();
+      await notification.save();
+    } catch (pushError) {
+      console.error('Push notification error:', pushError);
+      // Don't fail the request if push notification fails
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Notification sent successfully',
+      data: notification,
+    });
+  } catch (error) {
+    console.error('Send notification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+});
+
+export default router;

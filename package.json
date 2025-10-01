@@ -1,0 +1,21 @@
+{
+  "name": "kiatech-software-platform",
+  "version": "1.0.0",
+  "description": "Kiatech Software - Mobile App and Website Platform",
+  "main": "index.js",
+  "scripts": {
+    "dev:mobile": "cd mobile && npm start",
+    "dev:website": "cd website && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:all": "concurrently \"npm run dev:backend\" \"npm run dev:website\" \"npm run dev:mobile\"",
+    "build:website": "cd website && npm run build",
+    "build:mobile:android": "cd mobile && npx react-native run-android",
+    "build:mobile:ios": "cd mobile && npx react-native run-ios"
+  },
+  "keywords": ["react-native", "react", "mobile", "website", "notifications", "subscription"],
+  "author": "Kiatech Software",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
