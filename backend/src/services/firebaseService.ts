@@ -2,10 +2,19 @@ import admin from 'firebase-admin';
 import path from 'path';
 
 // Initialize Firebase Admin SDK
-const serviceAccountPath = path.join(__dirname, '../../firebase-admin-key.json');
+let serviceAccount;
 
 try {
-  const serviceAccount = require(serviceAccountPath);
+  // Try to read from environment variable first (for production/Railway)
+  if (process.env.FIREBASE_ADMIN_KEY) {
+    serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_KEY);
+    console.log('✅ Firebase Admin SDK initialized from environment variable');
+  } else {
+    // Fallback to local file (for development only)
+    const serviceAccountPath = path.join(__dirname, '../../firebase-admin-key.json');
+    serviceAccount = require(serviceAccountPath);
+    console.log('✅ Firebase Admin SDK initialized from local file');
+  }
   
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
@@ -14,6 +23,7 @@ try {
   console.log('✅ Firebase Admin SDK initialized successfully');
 } catch (error) {
   console.error('❌ Firebase Admin SDK initialization failed:', error);
+  console.error('Make sure FIREBASE_ADMIN_KEY environment variable is set in production');
 }
 
 export class FirebaseService {

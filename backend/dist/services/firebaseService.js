@@ -6,9 +6,17 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.FirebaseService = void 0;
 const firebase_admin_1 = __importDefault(require("firebase-admin"));
 const path_1 = __importDefault(require("path"));
-const serviceAccountPath = path_1.default.join(__dirname, '../../firebase-admin-key.json');
+let serviceAccount;
 try {
-    const serviceAccount = require(serviceAccountPath);
+    if (process.env.FIREBASE_ADMIN_KEY) {
+        serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_KEY);
+        console.log('✅ Firebase Admin SDK initialized from environment variable');
+    }
+    else {
+        const serviceAccountPath = path_1.default.join(__dirname, '../../firebase-admin-key.json');
+        serviceAccount = require(serviceAccountPath);
+        console.log('✅ Firebase Admin SDK initialized from local file');
+    }
     firebase_admin_1.default.initializeApp({
         credential: firebase_admin_1.default.credential.cert(serviceAccount),
     });
@@ -16,6 +24,7 @@ try {
 }
 catch (error) {
     console.error('❌ Firebase Admin SDK initialization failed:', error);
+    console.error('Make sure FIREBASE_ADMIN_KEY environment variable is set in production');
 }
 class FirebaseService {
     static async sendNotificationToDevice(token, title, body, data) {
