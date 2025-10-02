@@ -12,10 +12,20 @@
     "build:mobile:android": "cd mobile && npx react-native run-android",
     "build:mobile:ios": "cd mobile && npx react-native run-ios"
   },
-  "keywords": ["react-native", "react", "mobile", "website", "notifications", "subscription"],
+  "keywords": [
+    "react-native",
+    "react",
+    "mobile",
+    "website",
+    "notifications",
+    "subscription"
+  ],
   "author": "Kiatech Software",
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "mongodb": "^6.20.0"
   }
 }
