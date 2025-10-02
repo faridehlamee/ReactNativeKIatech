@@ -9,7 +9,13 @@
     "dev": "nodemon src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["api", "backend", "nodejs", "express", "mongodb"],
+  "keywords": [
+    "api",
+    "backend",
+    "nodejs",
+    "express",
+    "mongodb"
+  ],
   "author": "Kiatech Software",
   "license": "MIT",
   "dependencies": {
@@ -19,6 +25,7 @@
     "express": "^5.1.0",
     "express-rate-limit": "^8.1.0",
     "express-validator": "^7.2.1",
+    "firebase-admin": "^13.5.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.3",

@@ -5,6 +5,7 @@ import Notification from '../models/Notification';
 import User from '../models/User';
 import { authenticateToken, requireSubscription } from '../middleware/auth';
 import { sendPushNotification } from '../services/notificationService';
+import { FirebaseService } from '../services/firebaseService';
 
 interface AuthRequest extends express.Request {
   user?: {
@@ -298,6 +299,168 @@ router.post('/send', authenticateToken, requireSubscription('enterprise'), [
     });
   } catch (error) {
     console.error('Send notification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+});
+
+// Send push notification to specific user
+router.post('/send-push/:userId', authenticateToken, [
+  body('title').notEmpty().withMessage('Title is required'),
+  body('body').notEmpty().withMessage('Body is required'),
+  body('data').optional().isObject().withMessage('Data must be an object'),
+], async (req: AuthRequest, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: errors.array(),
+      });
+    }
+
+    const { userId } = req.params;
+    const { title, body, data } = req.body;
+
+    // Find user and get their FCM tokens
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    if (!user.pushTokens || user.pushTokens.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'User has no push tokens registered',
+      });
+    }
+
+    // Send push notification using Firebase
+    const result = await FirebaseService.sendNotificationToMultipleDevices(
+      user.pushTokens,
+      title,
+      body,
+      data
+    );
+
+    if (result.success) {
+      // Create notification record in database
+      const notification = new Notification({
+        title,
+        message: body,
+        type: 'info',
+        userId: user._id,
+        isSent: true,
+        sentAt: new Date(),
+        data: data || {},
+      });
+
+      await notification.save();
+
+      res.json({
+        success: true,
+        message: 'Push notification sent successfully',
+        result: {
+          successCount: result.successCount,
+          failureCount: result.failureCount,
+        },
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to send push notification',
+        error: result.error,
+      });
+    }
+  } catch (error) {
+    console.error('Send push notification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+});
+
+// Send push notification to all subscribed users
+router.post('/send-push-all', authenticateToken, [
+  body('title').notEmpty().withMessage('Title is required'),
+  body('body').notEmpty().withMessage('Body is required'),
+  body('data').optional().isObject().withMessage('Data must be an object'),
+], async (req: AuthRequest, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: errors.array(),
+      });
+    }
+
+    const { title, body, data } = req.body;
+
+    // Get all subscribed users with push tokens
+    const subscribedUsers = await User.find({
+      isSubscribed: true,
+      pushTokens: { $exists: true, $not: { $size: 0 } },
+    });
+
+    if (subscribedUsers.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No subscribed users with push tokens found',
+      });
+    }
+
+    // Collect all push tokens
+    const allTokens = subscribedUsers.flatMap(user => user.pushTokens);
+
+    // Send push notification to all tokens
+    const result = await FirebaseService.sendNotificationToMultipleDevices(
+      allTokens,
+      title,
+      body,
+      data
+    );
+
+    if (result.success) {
+      // Create notification records for all users
+      const notifications = subscribedUsers.map(user => ({
+        title,
+        message: body,
+        type: 'info',
+        userId: user._id,
+        isSent: true,
+        sentAt: new Date(),
+        data: data || {},
+      }));
+
+      await Notification.insertMany(notifications);
+
+      res.json({
+        success: true,
+        message: 'Push notifications sent to all subscribed users',
+        result: {
+          successCount: result.successCount,
+          failureCount: result.failureCount,
+          totalUsers: subscribedUsers.length,
+        },
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to send push notifications',
+        error: result.error,
+      });
+    }
+  } catch (error) {
+    console.error('Send push notification to all error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',

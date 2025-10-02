@@ -10,6 +10,7 @@ const Notification_1 = __importDefault(require("../models/Notification"));
 const User_1 = __importDefault(require("../models/User"));
 const auth_1 = require("../middleware/auth");
 const notificationService_1 = require("../services/notificationService");
+const firebaseService_1 = require("../services/firebaseService");
 const router = express_1.default.Router();
 router.get('/', auth_1.authenticateToken, [
     (0, express_validator_1.query)('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
@@ -257,6 +258,136 @@ router.post('/send', auth_1.authenticateToken, (0, auth_1.requireSubscription)('
     }
     catch (error) {
         console.error('Send notification error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+        });
+    }
+});
+router.post('/send-push/:userId', auth_1.authenticateToken, [
+    (0, express_validator_1.body)('title').notEmpty().withMessage('Title is required'),
+    (0, express_validator_1.body)('body').notEmpty().withMessage('Body is required'),
+    (0, express_validator_1.body)('data').optional().isObject().withMessage('Data must be an object'),
+], async (req, res) => {
+    try {
+        const errors = (0, express_validator_1.validationResult)(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation error',
+                errors: errors.array(),
+            });
+        }
+        const { userId } = req.params;
+        const { title, body, data } = req.body;
+        const user = await User_1.default.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found',
+            });
+        }
+        if (!user.pushTokens || user.pushTokens.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'User has no push tokens registered',
+            });
+        }
+        const result = await firebaseService_1.FirebaseService.sendNotificationToMultipleDevices(user.pushTokens, title, body, data);
+        if (result.success) {
+            const notification = new Notification_1.default({
+                title,
+                message: body,
+                type: 'info',
+                userId: user._id,
+                isSent: true,
+                sentAt: new Date(),
+                data: data || {},
+            });
+            await notification.save();
+            res.json({
+                success: true,
+                message: 'Push notification sent successfully',
+                result: {
+                    successCount: result.successCount,
+                    failureCount: result.failureCount,
+                },
+            });
+        }
+        else {
+            res.status(500).json({
+                success: false,
+                message: 'Failed to send push notification',
+                error: result.error,
+            });
+        }
+    }
+    catch (error) {
+        console.error('Send push notification error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+        });
+    }
+});
+router.post('/send-push-all', auth_1.authenticateToken, [
+    (0, express_validator_1.body)('title').notEmpty().withMessage('Title is required'),
+    (0, express_validator_1.body)('body').notEmpty().withMessage('Body is required'),
+    (0, express_validator_1.body)('data').optional().isObject().withMessage('Data must be an object'),
+], async (req, res) => {
+    try {
+        const errors = (0, express_validator_1.validationResult)(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation error',
+                errors: errors.array(),
+            });
+        }
+        const { title, body, data } = req.body;
+        const subscribedUsers = await User_1.default.find({
+            isSubscribed: true,
+            pushTokens: { $exists: true, $not: { $size: 0 } },
+        });
+        if (subscribedUsers.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'No subscribed users with push tokens found',
+            });
+        }
+        const allTokens = subscribedUsers.flatMap(user => user.pushTokens);
+        const result = await firebaseService_1.FirebaseService.sendNotificationToMultipleDevices(allTokens, title, body, data);
+        if (result.success) {
+            const notifications = subscribedUsers.map(user => ({
+                title,
+                message: body,
+                type: 'info',
+                userId: user._id,
+                isSent: true,
+                sentAt: new Date(),
+                data: data || {},
+            }));
+            await Notification_1.default.insertMany(notifications);
+            res.json({
+                success: true,
+                message: 'Push notifications sent to all subscribed users',
+                result: {
+                    successCount: result.successCount,
+                    failureCount: result.failureCount,
+                    totalUsers: subscribedUsers.length,
+                },
+            });
+        }
+        else {
+            res.status(500).json({
+                success: false,
+                message: 'Failed to send push notifications',
+                error: result.error,
+            });
+        }
+    }
+    catch (error) {
+        console.error('Send push notification to all error:', error);
         res.status(500).json({
             success: false,
             message: 'Internal server error',
