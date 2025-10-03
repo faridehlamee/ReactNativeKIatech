@@ -82,7 +82,15 @@ const connectDB = async () => {
     console.log('🔗 Attempting to connect to MongoDB...');
     const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/kiatech';
     console.log('📋 MongoDB URI:', mongoURI.substring(0, 20) + '...');
-    await mongoose.connect(mongoURI);
+    
+    // Add connection timeout
+    const connectionOptions = {
+      serverSelectionTimeoutMS: 10000, // 10 seconds timeout
+      connectTimeoutMS: 10000,
+    };
+    
+    console.log('⏱️ Connecting with timeout...');
+    await mongoose.connect(mongoURI, connectionOptions);
     console.log('✅ MongoDB connected successfully');
   } catch (error) {
     console.error('❌ MongoDB connection error:', error);
