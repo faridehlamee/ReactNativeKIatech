@@ -90,6 +90,14 @@ const connectDB = async () => {
 // Start server
 const startServer = async () => {
   try {
+    console.log('🔧 Starting server...');
+    console.log(`📋 Environment variables check:`);
+    console.log(`   - NODE_ENV: ${process.env.NODE_ENV}`);
+    console.log(`   - PORT: ${process.env.PORT}`);
+    console.log(`   - MONGODB_URI: ${process.env.MONGODB_URI ? 'Set' : 'Not set'}`);
+    console.log(`   - JWT_SECRET: ${process.env.JWT_SECRET ? 'Set' : 'Not set'}`);
+    console.log(`   - FIREBASE_PROJECT_ID: ${process.env.FIREBASE_PROJECT_ID ? 'Set' : 'Not set'}`);
+    
     await connectDB();
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
@@ -98,6 +106,7 @@ const startServer = async () => {
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
+    console.error('❌ Error details:', error);
     process.exit(1);
   }
 };
