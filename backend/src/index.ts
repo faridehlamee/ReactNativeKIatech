@@ -79,11 +79,14 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // Database connection
 const connectDB = async () => {
   try {
+    console.log('🔗 Attempting to connect to MongoDB...');
     const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/kiatech';
+    console.log('📋 MongoDB URI:', mongoURI.substring(0, 20) + '...');
     await mongoose.connect(mongoURI);
     console.log('✅ MongoDB connected successfully');
   } catch (error) {
     console.error('❌ MongoDB connection error:', error);
+    console.error('❌ Error details:', error.message);
     process.exit(1);
   }
 };
@@ -99,7 +102,9 @@ const startServer = async () => {
     console.log(`   - JWT_SECRET: ${process.env.JWT_SECRET ? 'Set' : 'Not set'}`);
     console.log(`   - FIREBASE_PROJECT_ID: ${process.env.FIREBASE_PROJECT_ID ? 'Set' : 'Not set'}`);
     
+    console.log('🔗 Starting database connection...');
     await connectDB();
+    console.log('✅ Database connection completed');
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📱 Environment: ${process.env.NODE_ENV || 'development'}`);
