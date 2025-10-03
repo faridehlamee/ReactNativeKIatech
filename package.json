@@ -2,8 +2,10 @@
   "name": "kiatech-software-platform",
   "version": "1.0.0",
   "description": "Kiatech Software - Mobile App and Website Platform",
-  "main": "index.js",
+  "main": "backend/dist/index.js",
   "scripts": {
+    "start": "cd backend && npm install --include=dev && npm run build && npm start",
+    "build": "cd backend && npm install --include=dev && npm run build",
     "dev:mobile": "cd mobile && npm start",
     "dev:website": "cd website && npm run dev",
     "dev:backend": "cd backend && npm run dev",
@@ -27,5 +29,8 @@
   },
   "dependencies": {
     "mongodb": "^6.20.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
