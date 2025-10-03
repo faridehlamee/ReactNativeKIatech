@@ -4,8 +4,8 @@
   "description": "Kiatech Software - Mobile App and Website Platform",
   "main": "backend/dist/index.js",
   "scripts": {
-    "build": "cd backend && npm run build",
-    "start": "cd backend && npm run start",
+    "build": "cd backend && npm install --include=dev && npm run build",
+    "start": "cd backend && npm start",
 
     "dev:backend": "cd backend && npm run dev",
     "dev:website": "cd website && npm run dev",
