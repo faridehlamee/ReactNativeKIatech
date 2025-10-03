@@ -16,6 +16,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+console.log(`🔧 Starting with PORT: ${PORT}`);
 
 // Security middleware
 app.use(helmet());
@@ -103,6 +104,10 @@ const startServer = async () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📱 Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`🌐 CORS enabled for: ${process.env.CORS_ORIGIN || 'http://localhost:3000'}`);
+      console.log(`✅ Server successfully started and listening on port ${PORT}`);
+    }).on('error', (err) => {
+      console.error('❌ Server failed to start:', err);
+      process.exit(1);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
