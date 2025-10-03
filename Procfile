@@ -1,1 +1,1 @@
-web: cd backend && npm install --include=dev && npm run build && npm start
+web: cd backend && npm install --include=dev && npm install -g typescript && tsc && npm start
