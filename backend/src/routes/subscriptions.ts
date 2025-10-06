@@ -160,6 +160,88 @@ router.put('/cancel', authenticateToken, async (req: AuthRequest, res: any) => {
   }
 });
 
+// Upgrade subscription
+router.put('/upgrade', authenticateToken, [
+  body('subscriptionType').isIn(['free', 'premium', 'enterprise']).withMessage('Invalid subscription type'),
+], async (req: AuthRequest, res: any) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array(),
+      });
+    }
+
+    const { subscriptionType } = req.body;
+    const userId = req.user?.userId;
+
+    // Calculate price and end date based on subscription type
+    let price = 0;
+    let endDate: Date | undefined;
+
+    switch (subscriptionType) {
+      case 'free':
+        price = 0;
+        endDate = undefined;
+        break;
+      case 'premium':
+        price = 9.99;
+        endDate = new Date();
+        endDate.setMonth(endDate.getMonth() + 1);
+        break;
+      case 'enterprise':
+        price = 29.99;
+        endDate = new Date();
+        endDate.setMonth(endDate.getMonth() + 1);
+        break;
+    }
+
+    // Cancel existing subscription if any
+    const existingSubscription = await Subscription.findOne({
+      userId,
+      status: 'active',
+    });
+
+    if (existingSubscription) {
+      existingSubscription.cancel(new mongoose.Types.ObjectId(userId));
+      await existingSubscription.save();
+    }
+
+    // Create new subscription
+    const subscription = new Subscription({
+      userId,
+      type: subscriptionType,
+      price,
+      currency: 'USD',
+      status: 'active',
+      endDate,
+    });
+
+    await subscription.save();
+
+    // Update user subscription status
+    await User.findByIdAndUpdate(userId, {
+      isSubscribed: subscriptionType !== 'free',
+      subscriptionType: subscriptionType,
+      subscriptionExpiry: endDate,
+    });
+
+    res.json({
+      success: true,
+      message: `Subscription upgraded to ${subscriptionType} successfully`,
+      data: subscription,
+    });
+  } catch (error) {
+    console.error('Upgrade subscription error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+});
+
 // Renew subscription
 router.put('/renew', authenticateToken, [
   body('months').isInt({ min: 1, max: 12 }).withMessage('Months must be between 1 and 12'),
