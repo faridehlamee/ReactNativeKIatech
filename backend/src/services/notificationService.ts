@@ -1,11 +1,10 @@
-// This is a placeholder for push notification service
-// In a real implementation, you would integrate with Firebase Cloud Messaging
-// and Apple Push Notification Service
+import { FirebaseService } from './firebaseService';
 
 interface PushNotificationData {
   title: string;
   body: string;
   data?: Record<string, any>;
+  channelId?: string;
 }
 
 export const sendPushNotification = async (
@@ -17,37 +16,32 @@ export const sendPushNotification = async (
       tokens: tokens.length,
       title: notification.title,
       body: notification.body,
+      channelId: notification.channelId,
     });
 
-    // In a real implementation, you would:
-    // 1. Send to Firebase Cloud Messaging for Android
-    // 2. Send to Apple Push Notification Service for iOS
-    // 3. Handle web push notifications
-    
-    // For now, we'll just log the notification
-    // This is where you would integrate with actual push notification services
-    
-    // Example Firebase integration (commented out):
-    /*
-    const admin = require('firebase-admin');
-    
-    const message = {
-      notification: {
-        title: notification.title,
-        body: notification.body,
-      },
-      data: notification.data || {},
-      tokens: tokens,
-    };
+    if (tokens.length === 0) {
+      console.log('No tokens to send notification to');
+      return;
+    }
 
-    const response = await admin.messaging().sendMulticast(message);
-    console.log('Successfully sent message:', response);
-    */
+    // Use Firebase service to send notifications
+    const result = await FirebaseService.sendNotificationToMultipleDevices(
+      tokens,
+      notification.title,
+      notification.body,
+      notification.data,
+      notification.channelId
+    );
 
-    // Simulate async operation
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    console.log('Push notification sent successfully');
+    if (result.success) {
+      console.log(`Push notification sent successfully to ${result.successCount} devices`);
+      if (result.failureCount > 0) {
+        console.log(`Failed to send to ${result.failureCount} devices`);
+      }
+    } else {
+      console.error('Failed to send push notification:', result.error);
+      throw new Error(result.error);
+    }
   } catch (error) {
     console.error('Error sending push notification:', error);
     throw error;

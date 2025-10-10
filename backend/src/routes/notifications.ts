@@ -230,6 +230,7 @@ router.post('/send', authenticateToken, requireSubscription('enterprise'), [
   body('message').trim().isLength({ min: 1, max: 500 }).withMessage('Message is required and must be less than 500 characters'),
   body('type').isIn(['info', 'warning', 'success', 'error']).withMessage('Type must be info, warning, success, or error'),
   body('userId').optional().isMongoId().withMessage('User ID must be a valid MongoDB ObjectId'),
+  body('subscriptionType').optional().isIn(['free', 'premium', 'enterprise']).withMessage('Subscription type must be free, premium, or enterprise'),
   body('data').optional().isObject().withMessage('Data must be an object'),
 ], async (req: AuthRequest, res: any) => {
   try {
@@ -242,51 +243,73 @@ router.post('/send', authenticateToken, requireSubscription('enterprise'), [
       });
     }
 
-    const { title, message, type, userId, data } = req.body;
+    const { title, message, type, userId, subscriptionType, data } = req.body;
 
-    // Create notification
-    const notification = new Notification({
-      title,
-      message,
-      type,
-      userId: userId || null, // null means broadcast
-      data: data || {},
-    });
+    // Build user query based on parameters
+    let userQuery: any = { isActive: true };
+    
+    if (userId) {
+      // Send to specific user
+      userQuery._id = userId;
+    } else if (subscriptionType) {
+      // Send to users with specific subscription type
+      userQuery.subscriptionType = subscriptionType;
+    }
 
-    await notification.save();
+    // Find target users
+    const targetUsers = await User.find(userQuery);
+    
+    if (targetUsers.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No users found matching the criteria',
+      });
+    }
 
-    // Send push notification
-    try {
-      if (userId) {
-        // Send to specific user
-        const user = await User.findById(userId);
-        if (user && user.pushTokens.length > 0) {
-          await sendPushNotification(user.pushTokens, {
-            title,
-            body: message,
-            data: { notificationId: notification._id.toString(), type, ...data }
-          });
-        }
-      } else {
-        // Send to all users
-        const users = await User.find({ 
-          isActive: true, 
-          pushTokens: { $exists: true, $not: { $size: 0 } } 
+    // Create notifications for each target user
+    const notifications = await Promise.all(
+      targetUsers.map(async (user) => {
+        const notification = new Notification({
+          title,
+          message,
+          type,
+          userId: user._id,
+          data: data || {},
         });
-        
-        for (const user of users) {
-          if (user.pushTokens.length > 0) {
+        await notification.save();
+        return notification;
+      })
+    );
+
+    // Send push notifications
+    let sentCount = 0;
+    let failedCount = 0;
+    
+    try {
+      for (const user of targetUsers) {
+        if (user.pushTokens && user.pushTokens.length > 0) {
+          try {
             await sendPushNotification(user.pushTokens, {
               title,
               body: message,
-              data: { notificationId: notification._id.toString(), type, ...data }
+              data: { notificationId: notifications[0]._id.toString(), type, ...data },
+              channelId: type === 'error' ? 'updates' : type === 'warning' ? 'promotions' : 'default'
             });
+            sentCount++;
+          } catch (pushError) {
+            console.error(`Push notification failed for user ${user.email}:`, pushError);
+            failedCount++;
           }
         }
       }
 
-      notification.markAsSent();
-      await notification.save();
+      // Mark notifications as sent
+      await Promise.all(
+        notifications.map(async (notification) => {
+          notification.markAsSent();
+          await notification.save();
+        })
+      );
     } catch (pushError) {
       console.error('Push notification error:', pushError);
       // Don't fail the request if push notification fails
@@ -295,7 +318,19 @@ router.post('/send', authenticateToken, requireSubscription('enterprise'), [
     res.status(201).json({
       success: true,
       message: 'Notification sent successfully',
-      data: notification,
+      data: {
+        notifications: notifications.length,
+        targetUsers: targetUsers.length,
+        pushNotificationsSent: sentCount,
+        pushNotificationsFailed: failedCount,
+        usersWithoutTokens: targetUsers.length - sentCount - failedCount,
+        details: {
+          title,
+          message,
+          type,
+          subscriptionType: subscriptionType || 'all',
+        }
+      },
     });
   } catch (error) {
     console.error('Send notification error:', error);

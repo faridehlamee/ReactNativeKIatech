@@ -72,7 +72,7 @@ export class FirebaseService {
   /**
    * Send push notification to multiple devices
    */
-  static async sendNotificationToMultipleDevices(tokens: string[], title: string, body: string, data?: any) {
+  static async sendNotificationToMultipleDevices(tokens: string[], title: string, body: string, data?: any, channelId?: string) {
     try {
       const message = {
         tokens,
@@ -86,6 +86,9 @@ export class FirebaseService {
           notification: {
             icon: 'ic_notification',
             color: '#2563eb',
+            channelId: channelId || 'default',
+            sound: 'default',
+            tag: 'kiatech_notification',
           },
         },
         apns: {
