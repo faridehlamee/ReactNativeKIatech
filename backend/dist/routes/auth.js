@@ -194,5 +194,58 @@ router.post('/logout', auth_1.authenticateToken, (req, res) => {
         message: 'Logout successful',
     });
 });
+router.post('/create-admin', [
+    (0, express_validator_1.body)('name').trim().isLength({ min: 2, max: 50 }).withMessage('Name must be between 2 and 50 characters'),
+    (0, express_validator_1.body)('email').isEmail().normalizeEmail().withMessage('Please provide a valid email'),
+    (0, express_validator_1.body)('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
+], async (req, res) => {
+    try {
+        const errors = (0, express_validator_1.validationResult)(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation failed',
+                errors: errors.array(),
+            });
+        }
+        const { name, email, password } = req.body;
+        const existingUser = await User_1.default.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({
+                success: false,
+                message: 'User already exists with this email',
+            });
+        }
+        const saltRounds = 12;
+        const hashedPassword = await bcryptjs_1.default.hash(password, saltRounds);
+        const user = new User_1.default({
+            name,
+            email,
+            password: hashedPassword,
+            subscriptionType: 'enterprise',
+            isSubscribed: true,
+        });
+        await user.save();
+        res.status(201).json({
+            success: true,
+            message: 'Admin user created successfully',
+            data: {
+                user: {
+                    id: user._id,
+                    name: user.name,
+                    email: user.email,
+                    subscriptionType: user.subscriptionType,
+                },
+            },
+        });
+    }
+    catch (error) {
+        console.error('Create admin error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+        });
+    }
+});
 exports.default = router;
 //# sourceMappingURL=auth.js.map
