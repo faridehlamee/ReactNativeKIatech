@@ -45,7 +45,9 @@ app.get('/health', (req, res) => {
     });
 });
 app.get('/admin', (req, res) => {
-    res.sendFile(path_1.default.join(__dirname, '../notification-admin.html'));
+    const adminPath = path_1.default.join(__dirname, '../notification-admin.html');
+    console.log('📱 Admin panel requested. File path:', adminPath);
+    res.sendFile(adminPath);
 });
 app.use('/api/auth', auth_1.default);
 app.use('/api/users', users_1.default);

@@ -58,7 +58,9 @@ app.get('/health', (req, res) => {
 
 // Serve admin panel
 app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, '../notification-admin.html'));
+  const adminPath = path.join(__dirname, '../notification-admin.html');
+  console.log('📱 Admin panel requested. File path:', adminPath);
+  res.sendFile(adminPath);
 });
 
 // API routes
