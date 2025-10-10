@@ -65,7 +65,7 @@ class FirebaseService {
             return { success: false, error: error.message || 'Unknown error' };
         }
     }
-    static async sendNotificationToMultipleDevices(tokens, title, body, data) {
+    static async sendNotificationToMultipleDevices(tokens, title, body, data, channelId) {
         try {
             const message = {
                 tokens,
@@ -79,6 +79,9 @@ class FirebaseService {
                     notification: {
                         icon: 'ic_notification',
                         color: '#2563eb',
+                        channelId: channelId || 'default',
+                        sound: 'default',
+                        tag: 'kiatech_notification',
                     },
                 },
                 apns: {

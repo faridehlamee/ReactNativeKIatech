@@ -245,7 +245,8 @@ router.post('/send', auth_1.authenticateToken, (0, auth_1.requireSubscription)('
                         await (0, notificationService_1.sendPushNotification)(user.pushTokens, {
                             title,
                             body: message,
-                            data: { notificationId: notifications[0]._id.toString(), type, ...data }
+                            data: { notificationId: notifications[0]._id.toString(), type, ...data },
+                            channelId: type === 'error' ? 'updates' : type === 'warning' ? 'promotions' : 'default'
                         });
                         sentCount++;
                     }

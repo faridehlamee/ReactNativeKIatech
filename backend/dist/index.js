@@ -10,6 +10,7 @@ const morgan_1 = __importDefault(require("morgan"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const mongoose_1 = __importDefault(require("mongoose"));
+const path_1 = __importDefault(require("path"));
 const auth_1 = __importDefault(require("./routes/auth"));
 const users_1 = __importDefault(require("./routes/users"));
 const notifications_1 = __importDefault(require("./routes/notifications"));
@@ -42,6 +43,9 @@ app.get('/health', (req, res) => {
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
     });
+});
+app.get('/admin', (req, res) => {
+    res.sendFile(path_1.default.join(__dirname, '../notification-admin.html'));
 });
 app.use('/api/auth', auth_1.default);
 app.use('/api/users', users_1.default);

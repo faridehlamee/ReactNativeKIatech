@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
+import path from 'path';
 
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
@@ -53,6 +54,11 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
   });
+});
+
+// Serve admin panel
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, '../notification-admin.html'));
 });
 
 // API routes

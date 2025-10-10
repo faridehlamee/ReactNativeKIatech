@@ -8,7 +8,7 @@ export declare class FirebaseService {
         error: any;
         messageId?: undefined;
     }>;
-    static sendNotificationToMultipleDevices(tokens: string[], title: string, body: string, data?: any): Promise<{
+    static sendNotificationToMultipleDevices(tokens: string[], title: string, body: string, data?: any, channelId?: string): Promise<{
         success: boolean;
         successCount: number;
         failureCount: number;
