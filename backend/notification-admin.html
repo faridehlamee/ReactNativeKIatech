@@ -344,7 +344,7 @@
             <div id="login-section" class="form-section">
                 <h3>🔐 Admin Login</h3>
                 <div class="form-group">
-                    <input type="email" id="login-email" placeholder="Email" value="admin@kiatech.com">
+                    <input type="email" id="login-email" placeholder="Email" value="admin@kiatechsoftware.com">
                 </div>
                 <div class="form-group">
                     <input type="password" id="login-password" placeholder="Password" value="admin123">
@@ -503,9 +503,11 @@
                     await loadUsers();
                     await updateStats();
                 } else {
-                    alert('Login failed: ' + result.message);
+                    console.error('Login failed:', result);
+                    alert('Login failed: ' + result.message + '\n\nPlease check:\n1. Email: ' + email + '\n2. Password is correct\n3. User exists in database');
                 }
             } catch (error) {
+                console.error('Login error:', error);
                 alert('Login error: ' + error.message);
             }
         });
