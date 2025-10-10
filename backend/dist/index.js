@@ -49,6 +49,12 @@ app.get('/admin', (req, res) => {
     console.log('📱 Admin panel requested. File path:', adminPath);
     res.sendFile(adminPath);
 });
+app.get('/admin-script.js', (req, res) => {
+    const scriptPath = path_1.default.join(__dirname, '../admin-script.js');
+    console.log('📜 Admin script requested. File path:', scriptPath);
+    res.setHeader('Content-Type', 'application/javascript');
+    res.sendFile(scriptPath);
+});
 app.use('/api/auth', auth_1.default);
 app.use('/api/users', users_1.default);
 app.use('/api/notifications', notifications_1.default);

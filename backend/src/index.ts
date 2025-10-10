@@ -63,6 +63,14 @@ app.get('/admin', (req, res) => {
   res.sendFile(adminPath);
 });
 
+// Serve admin JavaScript file
+app.get('/admin-script.js', (req, res) => {
+  const scriptPath = path.join(__dirname, '../admin-script.js');
+  console.log('📜 Admin script requested. File path:', scriptPath);
+  res.setHeader('Content-Type', 'application/javascript');
+  res.sendFile(scriptPath);
+});
+
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
