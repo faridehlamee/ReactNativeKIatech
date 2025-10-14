@@ -245,12 +245,21 @@ router.post('/send', auth_1.authenticateToken, (0, auth_1.requireSubscription)('
                 if (user.pushTokens && user.pushTokens.length > 0) {
                     try {
                         console.log(`📤 Sending push notification to ${user.email} with ${user.pushTokens.length} tokens`);
-                        await (0, notificationService_1.sendPushNotification)(user.pushTokens, {
+                        const result = await (0, notificationService_1.sendPushNotification)(user.pushTokens, {
                             title,
                             body: message,
                             data: { notificationId: notifications[0]._id.toString(), type, ...data },
                             channelId: type === 'error' ? 'updates' : type === 'warning' ? 'promotions' : 'default'
                         });
+                        if (result && result.failureCount === user.pushTokens.length) {
+                            console.log(`🧹 All push tokens failed for ${user.email}, cleaning up invalid tokens`);
+                            user.pushTokens = [];
+                            await user.save();
+                            console.log(`🗑️ Cleared invalid push tokens for ${user.email}`);
+                        }
+                        else if (result && result.failureCount > 0) {
+                            console.log(`⚠️ Some push tokens failed for ${user.email}, but keeping valid ones`);
+                        }
                         sentCount++;
                         console.log(`✅ Push notification sent to ${user.email}`);
                     }

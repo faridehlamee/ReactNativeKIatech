@@ -10,7 +10,7 @@ interface PushNotificationData {
 export const sendPushNotification = async (
   tokens: string[],
   notification: PushNotificationData
-): Promise<void> => {
+): Promise<{ successCount: number; failureCount: number }> => {
   try {
     console.log('Sending push notification:', {
       tokens: tokens.length,
@@ -21,7 +21,7 @@ export const sendPushNotification = async (
 
     if (tokens.length === 0) {
       console.log('No tokens to send notification to');
-      return;
+      return { successCount: 0, failureCount: 0 };
     }
 
     // Use Firebase service to send notifications
@@ -38,6 +38,7 @@ export const sendPushNotification = async (
       if (result.failureCount > 0) {
         console.log(`Failed to send to ${result.failureCount} devices`);
       }
+      return { successCount: result.successCount, failureCount: result.failureCount };
     } else {
       console.error('Failed to send push notification:', result.error);
       throw new Error(result.error);

@@ -12,7 +12,7 @@ const sendPushNotification = async (tokens, notification) => {
         });
         if (tokens.length === 0) {
             console.log('No tokens to send notification to');
-            return;
+            return { successCount: 0, failureCount: 0 };
         }
         const result = await firebaseService_1.FirebaseService.sendNotificationToMultipleDevices(tokens, notification.title, notification.body, notification.data, notification.channelId);
         if (result.success) {
@@ -20,6 +20,7 @@ const sendPushNotification = async (tokens, notification) => {
             if (result.failureCount > 0) {
                 console.log(`Failed to send to ${result.failureCount} devices`);
             }
+            return { successCount: result.successCount, failureCount: result.failureCount };
         }
         else {
             console.error('Failed to send push notification:', result.error);
