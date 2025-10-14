@@ -285,10 +285,15 @@ router.post('/send', authenticateToken, requireSubscription('enterprise'), [
     let sentCount = 0;
     let failedCount = 0;
     
+    console.log(`📱 Found ${targetUsers.length} target users`);
+    
     try {
       for (const user of targetUsers) {
+        console.log(`👤 User: ${user.email}, Push tokens: ${user.pushTokens ? user.pushTokens.length : 0}`);
+        
         if (user.pushTokens && user.pushTokens.length > 0) {
           try {
+            console.log(`📤 Sending push notification to ${user.email} with ${user.pushTokens.length} tokens`);
             await sendPushNotification(user.pushTokens, {
               title,
               body: message,
@@ -296,10 +301,13 @@ router.post('/send', authenticateToken, requireSubscription('enterprise'), [
               channelId: type === 'error' ? 'updates' : type === 'warning' ? 'promotions' : 'default'
             });
             sentCount++;
+            console.log(`✅ Push notification sent to ${user.email}`);
           } catch (pushError) {
-            console.error(`Push notification failed for user ${user.email}:`, pushError);
+            console.error(`❌ Push notification failed for user ${user.email}:`, pushError);
             failedCount++;
           }
+        } else {
+          console.log(`⚠️ No push tokens for user ${user.email}`);
         }
       }
 
