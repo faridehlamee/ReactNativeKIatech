@@ -10,12 +10,15 @@ export interface IUser extends Document {
   pushTokens: string[];
   isActive: boolean;
   lastLogin?: Date;
+  passwordResetToken?: string;
+  passwordResetExpires?: Date;
   createdAt: Date;
   updatedAt: Date;
   // Methods
   isSubscriptionActive(): boolean;
   addPushToken(token: string): void;
   removePushToken(token: string): void;
+  generatePasswordResetToken(): string;
 }
 
 const UserSchema = new Schema<IUser>({
@@ -66,6 +69,14 @@ const UserSchema = new Schema<IUser>({
     type: Date,
     default: null,
   },
+  passwordResetToken: {
+    type: String,
+    default: null,
+  },
+  passwordResetExpires: {
+    type: Date,
+    default: null,
+  },
 }, {
   timestamps: true,
 });
@@ -101,6 +112,21 @@ UserSchema.methods.addPushToken = function(token: string) {
 // Method to remove push token
 UserSchema.methods.removePushToken = function(token: string) {
   this.pushTokens = this.pushTokens.filter((t: string) => t !== token);
+};
+
+// Method to generate password reset token
+UserSchema.methods.generatePasswordResetToken = function(): string {
+  const crypto = require('crypto');
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  
+  this.passwordResetToken = crypto
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex');
+  
+  this.passwordResetExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+  
+  return resetToken;
 };
 
 export default mongoose.model<IUser>('User', UserSchema);
