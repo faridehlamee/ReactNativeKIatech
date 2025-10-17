@@ -22,7 +22,7 @@ class EmailService {
 
   private createTransporter(): Transporter {
     // Use your existing SMTP configuration from .env
-    const config: EmailConfig = {
+    const config = {
       host: process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com',
       port: parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587'),
       secure: false, // Use TLS instead of SSL

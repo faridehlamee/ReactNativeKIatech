@@ -29,7 +29,13 @@ app.use(cors({
     'http://localhost:8080',
     'http://localhost:8083',
     'http://127.0.0.1:8080',
-    'http://127.0.0.1:8083'
+    'http://127.0.0.1:8083',
+    // Allow Expo tunnel URLs
+    /^https?:\/\/.*\.exp\.direct$/,
+    /^https?:\/\/.*\.exp\.dev$/,
+    // Allow localhost with any port for development
+    /^https?:\/\/localhost:\d+$/,
+    /^https?:\/\/127\.0\.0\.1:\d+$/
   ],
   credentials: true,
 }));
