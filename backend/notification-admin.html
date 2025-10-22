@@ -200,9 +200,10 @@
 
             <div id="login-section" class="form-group">
                 <h3>🔐 Admin Login</h3>
-                <input type="email" id="login-email" placeholder="Email" value="admin@kiatech.com">
-                <input type="password" id="login-password" placeholder="Password" value="admin123">
+                <input type="email" id="login-email" placeholder="Email" value="testadmin@kiatech.com">
+                <input type="password" id="login-password" placeholder="Password" value="test123">
                 <button type="button" class="btn" id="login-btn">Login</button>
+                <button type="button" class="btn" id="create-admin-btn" style="background: #28a745; margin-top: 10px;">Create New Admin</button>
             </div>
 
             <div class="stats">
@@ -210,15 +211,15 @@
                     <div class="stat-number" id="total-notifications">0</div>
                     <div class="stat-label">Notifications Sent</div>
                 </div>
-                <div class="stat-card">
+                    <div class="stat-card">
                     <div class="stat-number" id="active-users">4</div>
-                    <div class="stat-label">Total Users</div>
-                </div>
-                <div class="stat-card">
+                        <div class="stat-label">Total Users</div>
+                    </div>
+                    <div class="stat-card">
                     <div class="stat-number" id="enterprise-users">3</div>
-                    <div class="stat-label">Enterprise Users</div>
+                        <div class="stat-label">Enterprise Users</div>
+                    </div>
                 </div>
-            </div>
 
             <div class="api-info">
                 <h3>👥 Current Users</h3>
@@ -228,49 +229,49 @@
                     <p>• Test User 2 (user2@test.com) - Enterprise</p>
                     <p>• Test User (test@kiatech.com) - Free</p>
                 </div>
-            </div>
+                </div>
 
             <form id="notification-form">
-                <div class="form-group">
+                    <div class="form-group">
                     <label for="title">📢 Notification Title</label>
-                    <input type="text" id="title" name="title" placeholder="Enter notification title" required>
-                </div>
+                        <input type="text" id="title" name="title" placeholder="Enter notification title" required>
+                    </div>
 
-                <div class="form-group">
+                    <div class="form-group">
                     <label for="body">📝 Notification Message</label>
                     <textarea id="body" name="body" placeholder="Enter notification message" required></textarea>
-                </div>
+                    </div>
 
-                <div class="form-group">
+                    <div class="form-group">
                     <label for="target">🎯 Target Audience</label>
                     <select id="target" name="target" required>
-                        <option value="all">All Users</option>
-                        <option value="premium">Premium Users Only</option>
-                        <option value="enterprise">Enterprise Users Only</option>
+                            <option value="all">All Users</option>
+                            <option value="premium">Premium Users Only</option>
+                            <option value="enterprise">Enterprise Users Only</option>
                         <option value="specific">Specific User ID</option>
-                    </select>
-                </div>
+                        </select>
+                    </div>
 
                 <div class="form-group" id="user-id-group" style="display: none;">
                     <label for="userId">👤 User ID</label>
                     <input type="text" id="userId" name="userId" placeholder="Enter specific user ID">
-                </div>
+                    </div>
 
-                <div class="form-group">
+                    <div class="form-group">
                     <label for="priority">⚡ Priority Level</label>
                     <select id="priority" name="priority">
                         <option value="normal">Normal</option>
                         <option value="high">High</option>
                         <option value="urgent">Urgent</option>
-                    </select>
-                </div>
+                        </select>
+                    </div>
 
                 <button type="submit" class="btn" id="send-btn">
-                    🚀 Send Notification
-                </button>
+                        🚀 Send Notification
+                    </button>
             </form>
 
-            <div id="status" class="status"></div>
+                <div id="status" class="status"></div>
         </div>
     </div>
 
@@ -333,10 +334,44 @@
                     document.getElementById('auth-status').style.color = '#28a745';
                     document.getElementById('login-section').style.display = 'none';
                 } else {
-                    alert('Login failed: ' + result.message);
+                    alert('Login failed: ' + result.message + '\n\nTry using:\nEmail: testadmin@kiatech.com\nPassword: test123\n\nOr create a new admin user.');
                 }
             } catch (error) {
                 alert('Login error: ' + error.message);
+            }
+        });
+
+        // Create admin functionality
+        document.getElementById('create-admin-btn').addEventListener('click', async function() {
+            const email = prompt('Enter email for new admin user:');
+            const password = prompt('Enter password for new admin user:');
+            const name = prompt('Enter name for new admin user:');
+            
+            if (!email || !password || !name) {
+                alert('All fields are required!');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/create-admin`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ name, email, password })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert('Admin user created successfully!\n\nEmail: ' + email + '\nPassword: ' + password + '\n\nYou can now login with these credentials.');
+                    document.getElementById('login-email').value = email;
+                    document.getElementById('login-password').value = password;
+                } else {
+                    alert('Failed to create admin user: ' + result.message);
+                }
+            } catch (error) {
+                alert('Error creating admin user: ' + error.message);
             }
         });
 
