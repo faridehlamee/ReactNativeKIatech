@@ -20,6 +20,65 @@ async function checkApiStatus() {
     }
 }
 
+// Load user statistics
+async function loadUserStats() {
+    if (!authToken) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/users/stats/overview`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            const stats = result.data;
+            
+            // Update total users
+            document.getElementById('total-users').textContent = stats.totalUsers;
+            
+            // Update subscription type counts
+            let enterpriseCount = 0;
+            let freeCount = 0;
+            let premiumCount = 0;
+            
+            stats.subscriptionStats.forEach(stat => {
+                if (stat._id === 'enterprise') enterpriseCount = stat.count;
+                if (stat._id === 'free') freeCount = stat.count;
+                if (stat._id === 'premium') premiumCount = stat.count;
+            });
+            
+            document.getElementById('enterprise-users').textContent = enterpriseCount;
+            document.getElementById('free-users').textContent = freeCount;
+            
+            // Update users list
+            const usersList = document.getElementById('users-list');
+            usersList.innerHTML = '';
+            
+            stats.recentUsers.forEach(user => {
+                const userElement = document.createElement('p');
+                userElement.textContent = `• ${user.name} (${user.email}) - ${user.subscriptionType.charAt(0).toUpperCase() + user.subscriptionType.slice(1)}`;
+                usersList.appendChild(userElement);
+            });
+            
+        } else {
+            console.error('Failed to load user stats:', response.status);
+            // Set default values if API fails
+            document.getElementById('total-users').textContent = 'Error';
+            document.getElementById('enterprise-users').textContent = 'Error';
+            document.getElementById('free-users').textContent = 'Error';
+        }
+    } catch (error) {
+        console.error('Error loading user stats:', error);
+        document.getElementById('total-users').textContent = 'Error';
+        document.getElementById('enterprise-users').textContent = 'Error';
+        document.getElementById('free-users').textContent = 'Error';
+    }
+}
+
 // Show/hide user ID field based on target selection
 document.getElementById('target').addEventListener('change', function() {
     const userIdGroup = document.getElementById('user-id-group');
@@ -54,6 +113,9 @@ document.getElementById('login-btn').addEventListener('click', async function() 
             document.getElementById('auth-status').innerHTML = '✅ Logged in';
             document.getElementById('auth-status').style.color = '#28a745';
             document.getElementById('login-section').style.display = 'none';
+            
+            // Load user statistics after successful login
+            await loadUserStats();
         } else {
             alert('Login failed: ' + result.message + '\n\nTry using:\nEmail: testadmin@kiatech.com\nPassword: test123\n\nOr create a new admin user.');
         }
@@ -210,8 +272,16 @@ if (authToken) {
         document.getElementById('auth-status').innerHTML = '✅ Logged in';
         document.getElementById('auth-status').style.color = '#28a745';
         document.getElementById('login-section').style.display = 'none';
+        
+        // Load user statistics
+        loadUserStats();
     }
 }
 
 // Update stats periodically
-setInterval(checkApiStatus, 30000); // Check every 30 seconds
+setInterval(() => {
+    checkApiStatus();
+    if (authToken && !isTokenExpired(authToken)) {
+        loadUserStats();
+    }
+}, 30000); // Check every 30 seconds
