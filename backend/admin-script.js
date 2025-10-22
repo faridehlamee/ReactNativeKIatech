@@ -1,14 +1,13 @@
-// Admin Panel JavaScript
 const API_BASE_URL = 'https://reactnativekiatech-production.up.railway.app';
-
 let authToken = localStorage.getItem('adminToken');
-let users = [];
 
-// Check API status
+// Check API status on load
 async function checkApiStatus() {
     try {
         const response = await fetch(`${API_BASE_URL}/health`);
-        if (response.ok) {
+        const data = await response.json();
+        
+        if (data.status === 'OK') {
             document.getElementById('api-status').innerHTML = '✅ Online';
             document.getElementById('api-status').style.color = '#28a745';
         } else {
@@ -20,6 +19,18 @@ async function checkApiStatus() {
         document.getElementById('api-status').style.color = '#dc3545';
     }
 }
+
+// Show/hide user ID field based on target selection
+document.getElementById('target').addEventListener('change', function() {
+    const userIdGroup = document.getElementById('user-id-group');
+    if (this.value === 'specific') {
+        userIdGroup.style.display = 'block';
+        document.getElementById('userId').required = true;
+    } else {
+        userIdGroup.style.display = 'none';
+        document.getElementById('userId').required = false;
+    }
+});
 
 // Login functionality
 document.getElementById('login-btn').addEventListener('click', async function() {
@@ -43,189 +54,108 @@ document.getElementById('login-btn').addEventListener('click', async function() 
             document.getElementById('auth-status').innerHTML = '✅ Logged in';
             document.getElementById('auth-status').style.color = '#28a745';
             document.getElementById('login-section').style.display = 'none';
-            document.getElementById('dashboard').style.display = 'block';
-            
-            await loadUsers();
-            await updateStats();
         } else {
-            console.error('Login failed:', result);
-            alert('Login failed: ' + result.message + '\n\nPlease check:\n1. Email: ' + email + '\n2. Password is correct\n3. User exists in database');
+            alert('Login failed: ' + result.message + '\n\nTry using:\nEmail: testadmin@kiatech.com\nPassword: test123\n\nOr create a new admin user.');
         }
     } catch (error) {
-        console.error('Login error:', error);
         alert('Login error: ' + error.message);
     }
 });
 
-// Load users from API
-async function loadUsers() {
+// Create admin functionality
+document.getElementById('create-admin-btn').addEventListener('click', async function() {
+    const email = prompt('Enter email for new admin user:');
+    const password = prompt('Enter password for new admin user:');
+    const name = prompt('Enter name for new admin user:');
+    
+    if (!email || !password || !name) {
+        alert('All fields are required!');
+        return;
+    }
+    
     try {
-        const response = await fetch(`${API_BASE_URL}/api/users`, {
+        const response = await fetch(`${API_BASE_URL}/api/auth/create-admin`, {
+            method: 'POST',
             headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ name, email, password })
         });
         
         const result = await response.json();
-        if (result.success) {
-            users = result.data.users;
-            displayUsers();
+        
+        if (response.ok) {
+            alert('Admin user created successfully!\n\nEmail: ' + email + '\nPassword: ' + password + '\n\nYou can now login with these credentials.');
+            document.getElementById('login-email').value = email;
+            document.getElementById('login-password').value = password;
+        } else {
+            alert('Failed to create admin user: ' + result.message);
         }
     } catch (error) {
-        console.error('Error loading users:', error);
+        alert('Error creating admin user: ' + error.message);
+    }
+});
+
+// Function to handle token expiration
+function handleTokenExpiration() {
+    authToken = null;
+    localStorage.removeItem('adminToken');
+    document.getElementById('auth-status').innerHTML = '❌ Token expired - Please login again';
+    document.getElementById('auth-status').style.color = '#dc3545';
+    document.getElementById('login-section').style.display = 'block';
+    alert('Your session has expired. Please login again.');
+}
+
+// Function to check if token is expired
+function isTokenExpired(token) {
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const currentTime = Math.floor(Date.now() / 1000);
+        return payload.exp < currentTime;
+    } catch (error) {
+        return true; // If we can't parse the token, consider it expired
     }
 }
 
-// Display users in the list
-function displayUsers() {
-    const userList = document.getElementById('user-list');
-    userList.innerHTML = '';
+// Update notification sending to include auth token
+document.getElementById('notification-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
     
-    users.forEach(user => {
-        const userItem = document.createElement('div');
-        userItem.className = 'user-item';
-        userItem.onclick = () => selectUser(user._id);
-        
-        const subscriptionClass = `subscription-${user.subscriptionType}`;
-        
-        userItem.innerHTML = `
-            <div class="user-info">
-                <div class="user-name">${user.name}</div>
-                <div class="user-email">${user.email}</div>
-            </div>
-            <span class="user-subscription ${subscriptionClass}">${user.subscriptionType.toUpperCase()}</span>
-        `;
-        
-        userList.appendChild(userItem);
-    });
-}
-
-// Select user for specific notification
-let selectedUserId = null;
-function selectUser(userId) {
-    selectedUserId = userId;
-    
-    // Update visual selection
-    document.querySelectorAll('.user-item').forEach(item => {
-        item.style.backgroundColor = '';
-    });
-    event.target.closest('.user-item').style.backgroundColor = '#e3f2fd';
-}
-
-// Update stats
-function updateStats() {
-    const totalUsers = users.length;
-    const freeUsers = users.filter(u => u.subscriptionType === 'free').length;
-    const premiumUsers = users.filter(u => u.subscriptionType === 'premium').length;
-    const enterpriseUsers = users.filter(u => u.subscriptionType === 'enterprise').length;
-    
-    document.getElementById('total-users').textContent = totalUsers;
-    document.getElementById('free-users').textContent = freeUsers;
-    document.getElementById('premium-users').textContent = premiumUsers;
-    document.getElementById('enterprise-users').textContent = enterpriseUsers;
-}
-
-// Toggle user selection visibility
-function toggleUserSelection() {
-    const target = document.getElementById('target').value;
-    const userSelection = document.getElementById('user-selection');
-    
-    if (target === 'specific') {
-        userSelection.style.display = 'block';
-    } else {
-        userSelection.style.display = 'none';
-        selectedUserId = null;
-    }
-}
-
-// Quick notification templates
-function fillQuickNotification(type) {
-    const titleInput = document.getElementById('title');
-    const messageInput = document.getElementById('message');
-    const typeSelect = document.getElementById('type');
-    
-    switch(type) {
-        case 'promotion':
-            titleInput.value = '🎉 Special Offer!';
-            messageInput.value = 'Get 50% off on premium features! Limited time offer for our valued users.';
-            typeSelect.value = 'success';
-            break;
-        case 'update':
-            titleInput.value = '🔄 App Update Available';
-            messageInput.value = 'New features and improvements are now available. Update your app for the best experience!';
-            typeSelect.value = 'info';
-            break;
-        case 'alert':
-            titleInput.value = '⚠️ Important Notice';
-            messageInput.value = 'Scheduled maintenance will occur tonight from 2-4 AM. Some features may be temporarily unavailable.';
-            typeSelect.value = 'warning';
-            break;
-    }
-    
-    updatePreview();
-}
-
-// Update notification preview
-function updatePreview() {
-    const title = document.getElementById('title').value || 'Notification Title';
-    const message = document.getElementById('message').value || 'Notification message will appear here...';
-    
-    document.getElementById('preview-title').textContent = title;
-    document.getElementById('preview-message').textContent = message;
-}
-
-// Clear form
-function clearForm() {
-    document.getElementById('title').value = '';
-    document.getElementById('message').value = '';
-    document.getElementById('target').value = 'all';
-    document.getElementById('type').value = 'info';
-    document.getElementById('user-selection').style.display = 'none';
-    selectedUserId = null;
-    updatePreview();
-}
-
-// Send notification
-document.getElementById('send-btn').addEventListener('click', async function() {
     if (!authToken) {
         alert('Please login first!');
+        return;
+    }
+
+    // Check if token is expired before making the request
+    if (isTokenExpired(authToken)) {
+        handleTokenExpiration();
         return;
     }
     
     const sendBtn = document.getElementById('send-btn');
     const status = document.getElementById('status');
     
-    const title = document.getElementById('title').value;
-    const message = document.getElementById('message').value;
-    const type = document.getElementById('type').value;
-    const target = document.getElementById('target').value;
-    
-    if (!title || !message) {
-        alert('Please fill in both title and message!');
-        return;
-    }
-    
-    // Build notification data
+    // Get form data
+    const formData = new FormData(this);
     const notificationData = {
-        title: title,
-        message: message,
-        type: type
+        title: formData.get('title'),
+        message: formData.get('body'), // API expects 'message' not 'body'
+        type: formData.get('priority') === 'urgent' ? 'error' : 
+              formData.get('priority') === 'high' ? 'warning' : 'info'
     };
-    
-    // Add targeting
-    if (target === 'specific' && selectedUserId) {
-        notificationData.userId = selectedUserId;
-    } else if (target !== 'all') {
-        notificationData.subscriptionType = target;
+
+    // Add userId if specific target is selected
+    if (formData.get('target') === 'specific') {
+        notificationData.userId = formData.get('userId');
     }
-    
+
     // Show loading state
     sendBtn.disabled = true;
     sendBtn.textContent = '⏳ Sending...';
     status.className = 'status loading';
     status.style.display = 'block';
     status.textContent = 'Sending notification...';
-    
+
     try {
         const response = await fetch(`${API_BASE_URL}/api/notifications/send`, {
             method: 'POST',
@@ -235,16 +165,27 @@ document.getElementById('send-btn').addEventListener('click', async function() {
             },
             body: JSON.stringify(notificationData)
         });
-        
+
         const result = await response.json();
-        
+
         if (response.ok) {
             status.className = 'status success';
-            status.textContent = `✅ Notification sent successfully! Sent to ${result.data?.targetUsers || 'users'} users.`;
+            status.textContent = `✅ Notification sent successfully! Message ID: ${result.data?.id || 'N/A'}`;
             
-            // Clear form
-            clearForm();
+            // Update stats
+            const totalNotifications = document.getElementById('total-notifications');
+            totalNotifications.textContent = parseInt(totalNotifications.textContent) + 1;
+            
+            // Reset form
+            this.reset();
+            document.getElementById('user-id-group').style.display = 'none';
         } else {
+            // Check if it's an authentication error
+            if (response.status === 401) {
+                handleTokenExpiration();
+                return;
+            }
+            
             status.className = 'status error';
             status.textContent = `❌ Error: ${result.message || 'Failed to send notification'}`;
         }
@@ -262,21 +203,15 @@ checkApiStatus();
 
 // Check if already logged in
 if (authToken) {
-    document.getElementById('auth-status').innerHTML = '✅ Logged in';
-    document.getElementById('auth-status').style.color = '#28a745';
-    document.getElementById('login-section').style.display = 'none';
-    document.getElementById('dashboard').style.display = 'block';
-    loadUsers().then(updateStats);
+    // Check if the stored token is expired
+    if (isTokenExpired(authToken)) {
+        handleTokenExpiration();
+    } else {
+        document.getElementById('auth-status').innerHTML = '✅ Logged in';
+        document.getElementById('auth-status').style.color = '#28a745';
+        document.getElementById('login-section').style.display = 'none';
+    }
 }
 
-// Update preview on input
-document.getElementById('title').addEventListener('input', updatePreview);
-document.getElementById('message').addEventListener('input', updatePreview);
-
 // Update stats periodically
-setInterval(() => {
-    if (authToken) {
-        checkApiStatus();
-        loadUsers().then(updateStats);
-    }
-}, 30000);
+setInterval(checkApiStatus, 30000); // Check every 30 seconds
