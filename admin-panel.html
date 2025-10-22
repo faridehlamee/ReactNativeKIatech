@@ -340,6 +340,27 @@
             }
         });
 
+        // Function to handle token expiration
+        function handleTokenExpiration() {
+            authToken = null;
+            localStorage.removeItem('adminToken');
+            document.getElementById('auth-status').innerHTML = '❌ Token expired - Please login again';
+            document.getElementById('auth-status').style.color = '#dc3545';
+            document.getElementById('login-section').style.display = 'block';
+            alert('Your session has expired. Please login again.');
+        }
+
+        // Function to check if token is expired
+        function isTokenExpired(token) {
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                const currentTime = Math.floor(Date.now() / 1000);
+                return payload.exp < currentTime;
+            } catch (error) {
+                return true; // If we can't parse the token, consider it expired
+            }
+        }
+
         // Update notification sending to include auth token
         const originalFormHandler = document.getElementById('notification-form').addEventListener;
         document.getElementById('notification-form').addEventListener('submit', async function(e) {
@@ -347,6 +368,12 @@
             
             if (!authToken) {
                 alert('Please login first!');
+                return;
+            }
+
+            // Check if token is expired before making the request
+            if (isTokenExpired(authToken)) {
+                handleTokenExpiration();
                 return;
             }
             
@@ -398,6 +425,12 @@
                     this.reset();
                     document.getElementById('user-id-group').style.display = 'none';
                 } else {
+                    // Check if it's an authentication error
+                    if (response.status === 401) {
+                        handleTokenExpiration();
+                        return;
+                    }
+                    
                     status.className = 'status error';
                     status.textContent = `❌ Error: ${result.message || 'Failed to send notification'}`;
                 }
@@ -415,9 +448,14 @@
         
         // Check if already logged in
         if (authToken) {
-            document.getElementById('auth-status').innerHTML = '✅ Logged in';
-            document.getElementById('auth-status').style.color = '#28a745';
-            document.getElementById('login-section').style.display = 'none';
+            // Check if the stored token is expired
+            if (isTokenExpired(authToken)) {
+                handleTokenExpiration();
+            } else {
+                document.getElementById('auth-status').innerHTML = '✅ Logged in';
+                document.getElementById('auth-status').style.color = '#28a745';
+                document.getElementById('login-section').style.display = 'none';
+            }
         }
         
         // Update stats periodically
